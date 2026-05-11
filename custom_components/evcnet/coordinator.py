@@ -228,7 +228,7 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                 err,
             )
             if spot_id in self.data:
-                return self.data[spot_id]
+                return self.data and self.data[spot_id]
             return EvcSpotData(
                 info=spot,
                 status={},
