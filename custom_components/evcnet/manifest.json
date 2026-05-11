@@ -1,6 +1,6 @@
 {
-  "domain": "evcnet",
-  "name": "EVC-net (Last Mile Solutions)",
+  "domain": "ha-evcnet",
+  "name": "EVC-net (50Five/LMS)",
   "codeowners": ["@Platzii", "@Wilbiev"],
   "config_flow": true,
   "documentation": "https://github.com/wilbiev/evcnet",
