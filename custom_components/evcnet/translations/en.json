@@ -93,7 +93,10 @@
       "session_time": {
         "name": "Session Time"
       },
-      "status": {
+      "spot_meter": {
+        "name": "Charge Spot Internal kWh meter"
+      },
+	  "status": {
         "name": "Status"
       },
       "status_code": {
