@@ -6,6 +6,8 @@ DOMAIN = "evcnet"
 CONF_BASE_URL = "base_url"
 CONF_SELECTED_CARD_IDS = "selected_card_ids"
 CONF_SELECTED_CHANNEL_IDS = "selected_channel_ids"
+CONF_KNOWN_CARD_IDS = "known_card_ids"
+CONF_DEFAULT_CARD_IDS = "default_card_ids"
 
 # Default values
 DEFAULT_BASE_URL = "https://50five-snl.evc-net.com"
