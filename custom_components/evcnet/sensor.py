@@ -80,6 +80,15 @@ SENSOR_TYPES: tuple[EvcNetSensorEntityDescription, ...] = (
         value_fn=lambda data: data.total_energy_usage,
     ),
     EvcNetSensorEntityDescription(
+        key="spot_meter",
+        translation_key="spot_meter",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.meter_stop_kwh,
+    ),
+    EvcNetSensorEntityDescription(
         key="session_energy",
         translation_key="session_energy",
         device_class=SensorDeviceClass.ENERGY,

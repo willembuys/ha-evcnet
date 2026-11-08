@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
+import re
 from typing import Any, cast
 
 from homeassistant.core import HomeAssistant
@@ -46,7 +47,7 @@ class EvcSpotData:
     selected_channel_id: str = "1"
     available_channels: dict[int, str] = field(default_factory=dict)
     logging: list[dict[str, Any]] = field(default_factory=list)
-
+    meter_stop_kwh: float | None = None
 
 class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
     """Class to manage fetching EVC-net data."""
@@ -178,6 +179,7 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
             available_channels: dict[int, str] = {}
             selected_channel_id = "1"
             logging_data: list[dict[str, Any]] = []
+            meter_stop_kwh = None
             status_response = cast(
                 list[list[dict[str, Any]]],
                 await self.client.get_spot_overview(str(spot_id)),
@@ -249,25 +251,52 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
             else:
                 _, total_energy_usage = energy_cache
 
+            meter_stop_kwh = None
+
             if selected_channel_id:
                 logging_key = (spot_id, selected_channel_id)
                 logging_cache = self._logging_cache.get(logging_key)
+
                 now = dt_util.utcnow()
+
                 if (
                     force_auxiliary_refresh
                     or logging_cache is None
                     or now - logging_cache[0] >= LOG_UPDATE_INTERVAL
                 ):
                     logging_data = await self._async_get_logging(
-                        spot_id, selected_channel_id
+                        spot_id,
+                        selected_channel_id,
                     )
-                    entry = self.hass.config_entries.async_entries(DOMAIN)[0]
 
-                    known = dict(entry.options.get(CONF_KNOWN_CARD_IDS,{},))
+                    meter_stop_kwh = self._extract_meter_stop_kwh(
+                        logging_data
+                    )
+
+                    if meter_stop_kwh is not None:
+                        _LOGGER.debug(
+                            "Found meter stop value %.3f kWh for spot %s",
+                            meter_stop_kwh,
+                            spot_id,
+                        )
+
+                    entry = self.hass.config_entries.async_entries(
+                        DOMAIN
+                    )[0]
+
+                    known = dict(
+                        entry.options.get(
+                            CONF_KNOWN_CARD_IDS,
+                            {},
+                        )
+                    )
 
                     cards = set(
                         str(card)
-                        for card in known.get(spot_id, [])
+                        for card in known.get(
+                            spot_id,
+                            [],
+                        )
                         if card
                     )
 
@@ -277,15 +306,43 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                         if card:
                             cards.add(card)
 
-                    existing_cards = set(known.get(spot_id, []))
+                    existing_cards = set(
+                        known.get(
+                            spot_id,
+                            [],
+                        )
+                    )
 
                     if cards != existing_cards:
                         known[spot_id] = sorted(cards)
 
-                        self.hass.config_entries.async_update_entry(entry,options={**entry.options,CONF_KNOWN_CARD_IDS: known,},)
-                    self._logging_cache[logging_key] = (now, logging_data)
+                        self.hass.config_entries.async_update_entry(
+                            entry,
+                            options={
+                                **entry.options,
+                                CONF_KNOWN_CARD_IDS: known,
+                            },
+                        )
+
+                    self._logging_cache[logging_key] = (
+                        now,
+                        logging_data,
+                    )
+
                 else:
                     _, logging_data = logging_cache
+
+                    meter_stop_kwh = self._extract_meter_stop_kwh(
+                        logging_data
+                    )
+
+            if (
+                meter_stop_kwh is None
+                and spot_id in self.data
+            ):
+                meter_stop_kwh = (
+                    self.data[spot_id].meter_stop_kwh
+                )
 
             return EvcSpotData(
                 info=spot,
@@ -297,6 +354,7 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                 available_channels=available_channels,
                 selected_channel_id=str(selected_channel_id),
                 logging=logging_data,
+                meter_stop_kwh=meter_stop_kwh,
             )
 
         except EvcNetException as err:
@@ -348,7 +406,7 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                 status[KEY_CUSTOMERS_IDX] = customer_idx
                 status[KEY_CUSTOMER_NAME] = customer_text
             else:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "No customer data returned for spot %s: %s",
                     spot_id,
                     customer_data,
@@ -497,6 +555,28 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
             if len(total_energy_list) > 0 and isinstance(total_energy_list[0], dict):
                 return get_total_energy_usage_kwh(total_energy_list[0])
         return 0.0
+
+    @staticmethod
+    def _extract_meter_stop_kwh(
+        logging_data: list[dict[str, Any]],
+    ) -> float | None:
+        """Extract latest meter stop value from logging."""
+
+        for row in logging_data:
+            if row.get("NOT") != "Commit transactie":
+                continue
+
+            event_data = row.get("EVD", "")
+
+            match = re.search(
+                r"Meter stop:\s*(\d+)\s*Wh",
+                event_data,
+            )
+
+            if match:
+                return int(match.group(1)) / 1000
+
+        return None
 
     async def _async_get_logging(
         self, spot_id: str, channel_id: str
