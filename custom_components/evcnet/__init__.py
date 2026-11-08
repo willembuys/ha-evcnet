@@ -12,6 +12,8 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
     CONF_BASE_URL,
+    CONF_DEFAULT_CARD_IDS,
+    CONF_KNOWN_CARD_IDS,
     CONF_SELECTED_CARD_IDS,
     CONF_SELECTED_CHANNEL_IDS,
     DOMAIN,
@@ -149,7 +151,7 @@ def setup_services(hass: HomeAssistant) -> None:
                         known[spot_id] = sorted(cards)
 
                         if spot_id not in defaults:
-                        defaults[spot_id] = card_id
+                            defaults[spot_id] = card_id
 
                         hass.config_entries.async_update_entry(entry,options={**entry.options,CONF_KNOWN_CARD_IDS: known,CONF_DEFAULT_CARD_IDS: defaults,},)
                     except Exception:
