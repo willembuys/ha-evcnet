@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import AuthenticationError, EvcNetApiClient
 from .const import (
+    CONF_KNOWN_CARD_IDS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     KEY_CARDID,
@@ -260,6 +261,29 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                     logging_data = await self._async_get_logging(
                         spot_id, selected_channel_id
                     )
+                    entry = self.hass.config_entries.async_entries(DOMAIN)[0]
+
+                    known = dict(entry.options.get(CONF_KNOWN_CARD_IDS,{},))
+
+                    cards = set(
+                        str(card)
+                        for card in known.get(spot_id, [])
+                        if card
+                    )
+
+                    for row in logging_data:
+                        _LOGGER.debug("CARD DISCOVERY row=%s",row,)
+                        card = row.get("CDN")
+
+                        if card:
+                            cards.add(card)
+
+                    existing_cards = set(known.get(spot_id, []))
+
+                    if cards != existing_cards:
+                        known[spot_id] = sorted(cards)
+
+                        self.hass.config_entries.async_update_entry(entry,options={**entry.options,CONF_KNOWN_CARD_IDS: known,},)
                     self._logging_cache[logging_key] = (now, logging_data)
                 else:
                     _, logging_data = logging_cache
