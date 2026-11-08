@@ -128,16 +128,30 @@ def setup_services(hass: HomeAssistant) -> None:
             spot_data = coordinator.data.get(spot_id)
 
             if spot_data:
-                # Prioriteit: 1. Service call card_id, 2. Geselecteerde kaart in UI
-                card_id = card_id_override or spot_data.selected_card_id
+                # Priority: 1. Service call card_id, 2. Selected card, 3. Default card
+                default_cards = entry.options.get(CONF_DEFAULT_CARD_IDS,{})
+
+                card_id = (card_id_override or spot_data.selected_card_id or default_cards.get(spot_id))
                 customer_id = spot_data.customer_id
                 channel_id = channel_id_override or spot_data.selected_channel_id
 
-                if card_id and channel_id and customer_id:
+                if card_id and channel_id:
                     try:
                         await coordinator.client.start_charging(
                             spot_id, customer_id, card_id, channel_id
                         )
+                        known = dict(entry.options.get(CONF_KNOWN_CARD_IDS, {}))
+                        defaults = dict(entry.options.get(CONF_DEFAULT_CARD_IDS, {}))
+
+                        cards = set(known.get(spot_id, []))
+                        cards.add(card_id)
+
+                        known[spot_id] = sorted(cards)
+
+                        if spot_id not in defaults:
+                        defaults[spot_id] = card_id
+
+                        hass.config_entries.async_update_entry(entry,options={**entry.options,CONF_KNOWN_CARD_IDS: known,CONF_DEFAULT_CARD_IDS: defaults,},)
                     except Exception:
                         _LOGGER.exception(
                             "Failed to start charging for spot %s", spot_id
