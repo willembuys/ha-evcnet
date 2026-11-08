@@ -272,7 +272,6 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                     )
 
                     for row in logging_data:
-                        _LOGGER.debug("CARD DISCOVERY row=%s",row,)
                         card = row.get("CDN")
 
                         if card:
@@ -326,8 +325,9 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
         old_selections: dict[str, Any],
     ) -> tuple[str | None, dict[str, str], str | None]:
         """Process customer and available cards for a spot."""
+
         customer_idx = status.get(KEY_CUSTOMERS_IDX)
-        available_cards = {}
+        available_cards: dict[str, str] = {}
         selected_card_id = None
 
         if not customer_idx:
@@ -354,43 +354,104 @@ class EvcNetCoordinator(DataUpdateCoordinator[dict[str, EvcSpotData]]):
                     customer_data,
                 )
 
+        #
+        # NORMAL FLOW
+        #
         if customer_idx:
             card_data = cast(
                 list[list[dict[str, Any]]],
-                await self.client.get_card_id(spot_id, customer_idx),
+                await self.client.get_card_id(
+                    spot_id,
+                    customer_idx,
+                ),
             )
+
             if (
                 isinstance(card_data, list)
                 and len(card_data) > 0
                 and isinstance(card_data[0], list)
+                and len(card_data[0]) > 0
             ):
-                available_cards = {card["text"]: card["id"] for card in card_data[0]}
-                selected_card_id = old_selections.get(spot_id)
+                available_cards = {
+                    card["text"]: card["id"]
+                    for card in card_data[0]
+                }
 
-                if not selected_card_id and available_cards:
-                    selected_card_id = list(available_cards.values())[0]
+                _LOGGER.debug(
+                    "Using cardAccess() cards for spot %s",
+                    spot_id,
+                )
+
+        #
+        # FALLBACK FLOW (Arval, ...)
+        #
+        if not available_cards:
+            try:
+                entry = self.hass.config_entries.async_entries(
+                    DOMAIN
+                )[0]
+
+                known_cards = (
+                    entry.options
+                    .get(CONF_KNOWN_CARD_IDS, {})
+                    .get(spot_id, [])
+                )
+
+                if known_cards:
+                    available_cards = {
+                        card_id: card_id
+                        for card_id in known_cards
+                    }
+
+                    _LOGGER.info(
+                        "Using %d known cards for spot %s",
+                        len(known_cards),
+                        spot_id,
+                    )
+
+            except Exception as err:
+                _LOGGER.debug(
+                    "Could not load known cards for %s: %s",
+                    spot_id,
+                    err,
+                )
+
+        #
+        # EXISTING SELECTION LOGIC
+        #
+        if available_cards:
+            selected_card_id = old_selections.get(spot_id)
+
+            if not selected_card_id:
+                selected_card_id = next(
+                    iter(available_cards.values())
+                )
+
+            if selected_card_id not in available_cards.values():
+                selected_card_id = next(
+                    iter(available_cards.values())
+                )
+
+                _LOGGER.info(
+                    "Selected card for spot %s was not valid or new. Default selected",
+                    spot_id,
+                )
+
+            for name, card_id in available_cards.items():
+                if card_id == selected_card_id:
                     status[KEY_CARDS_IDX] = selected_card_id
-                    status[KEY_CARDID] = list(available_cards.keys())[0]
-                elif selected_card_id and available_cards:
-                    if selected_card_id not in available_cards.values():
-                        selected_card_id = list(available_cards.values())[0]
-                        status[KEY_CARDS_IDX] = selected_card_id
-                        status[KEY_CARDID] = list(available_cards.keys())[0]
-                        _LOGGER.info(
-                            "Selected card for spot %s was not valid or new. Default selected",
-                            spot_id,
-                        )
-                    else:
-                        for name, card_id in available_cards.items():
-                            if card_id == selected_card_id:
-                                status[KEY_CARDS_IDX] = selected_card_id
-                                status[KEY_CARDID] = name
-                                break
-            else:
-                status[KEY_CARDS_IDX] = ""
-                status[KEY_CARDID] = ""
+                    status[KEY_CARDID] = name
+                    break
 
-        return customer_idx, available_cards, selected_card_id
+        else:
+            status[KEY_CARDS_IDX] = ""
+            status[KEY_CARDID] = ""
+
+        return (
+            customer_idx,
+            available_cards,
+            selected_card_id,
+        )
 
     @staticmethod
     def _apply_card_selection(
