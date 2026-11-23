@@ -4,14 +4,15 @@ This custom integration allows you to monitor and control your EVC-net (Last Mil
 
 ## Disclaimer
 
-**Important Notice**: This integration is a based on the code of [Platzii](https://github.com/Platzii/homeassistant-evcnet). Rewriting the code in line with Python and Home Assistant Integration development standards resulted in a large reduction. This integration adds several additional functionalities. Choices can be made out of the available cards and channels per spot which are automatically detected. The integration works for the following 50five EvcNet-endpoints:
+**Important Notice**: This integration adds extra functionality on top of the integration maintained by [Wilbiev](https://github.com/wilbiev/evcnet), which in turn is a based on the code of [Platzii](https://github.com/Platzii/homeassistant-evcnet). Choices can be made out of the available cards and channels per spot which are automatically detected. The integration works for the following EvcNet-endpoints:
 
-- AT: (`50five-sat.evc-net.com`)
-- BELUX: (`50five-sbelux.evc-net.com`)
-- DE: (`50five-sde.evc-net.com`)
-- FR: (`capbornes.evc-net.com`)
-- NL: (`50five-snl.evc-net.com`)
-- UK: (`50five-suk.evc-net.com`)
+- 50five AT: (`50five-sat.evc-net.com`)
+- 50five BELUX: (`50five-sbelux.evc-net.com`)
+- 50five DE: (`50five-sde.evc-net.com`)
+- 50five FR: (`capbornes.evc-net.com`)
+- 50five NL: (`50five-snl.evc-net.com`)
+- 50five UK: (`50five-suk.evc-net.com`)
+- Arval BE: (`arvalbe.evc-net.com`)
 
 From version 1.1.4 onwards two factor authentication with OTP is supported.
 
