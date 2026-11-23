@@ -77,6 +77,7 @@ For each charging station, the integration creates:
 - **Status Code**: Raw status code from the charging station
 - **Total Energy**: Total energy consumed (kWh)
 - **Last Logging Update**: shows when the logging was updated. Contains attribute **entries** with 50 logging entries per channel. Can be converted to markdown in the dashboard to show a list.
+- **Charge Spot Internal kWh meter**: exposes the value of internal energy meter of the charge spot in kWh, with 3 decimals. This is only updated after a session ends.
 
 ### Switch
 
@@ -84,7 +85,7 @@ For each charging station, the integration creates:
 
 ## Using Multiple RFID Cards
 
-The integration supports using different RFID cards for different charging sessions. This is useful when you have multiple vehicles with different charging cards.
+The integration supports using different RFID cards for different charging sessions. This is useful when you have multiple vehicles with different charging cards. Used charging cards are stored.
 
 ### Using the Action
 
